@@ -1,57 +1,94 @@
-function main () {
+document.addEventListener('DOMContentLoaded', function() {
+  const AppConst = {
+    difficalties: [
+    {id: 1, val: "easy"},
+    {id: 2, val: "normal"},
+    {id: 3, val: "hard"},
+    ],
+  }
   const template = `
-<div>
-  <h>hello world</h>
-  <table class='board-table'>
-  <tbody>
+  <div>
+    <form @submit.prevent>
+      row: <input v-model='row' type='number' min='1' step='1'></input>
+      column: <input v-model='column' type='number' min='1' step='1'></input>
+      <br/>
+      difficalty: <select :value='difficalty'>
+        <option v-for='option in resource.difficalties' :value='option.id'>
+          {{ option.val }}
+        </option>
+      </select>
+      <button @click='startGame()'>START</button>
+    </form>
+    <p>row: {{ row }}, column: {{ column }}</p>
+    <p>{{ msg }}</p>
+    <table class='board-table'>
+    <tbody>
     <tr v-for='row in boardRows'>
       <td class='board-cell'
         v-for='col in boardColumns' :row='row' :col='col'
-        :ref='""+ row + "-" + col'
-        :class='[{active: checkActivation(row, col)}]'
+        :ref='row + "-" + col'
         @click='clickCell($event, row, col)'
         @mouseup.right='rightClickCell($event, row, col)'></td>
     </tr>
-  </tbody>
-  </table>
-</div>
-  `
-
+    </tbody>
+    </table>
+    </div>
+  `;
   new Vue({
-    el: '#minesweeper',
+    el: "#minesweeper",
     template: template,
     data: {
-      column: 10,
+      resource: {
+        difficalties: AppConst.difficalties,
+      },
       row: 20,
+      column: 20,
+      difficalty: AppConst.difficalties[1],
       activeMap: new Map(),
       bombMap: new Map(),
       isGameStart: false,
+      msg: "Hello World!",
     },
     computed: {
       boardCells: function () {
         return [...Array(this.column*this.row).keys()];
       },
       boardColumns: function () {
-        return [...Array(this.column).keys()];
+        const col = this.column;
+        console.log(`typeof: ${typeof col}`);
+        return [...Array(col).keys()];
       },
       boardRows: function () {
         return [...Array(this.row).keys()];
       },
     },
+    watch: {
+      row: function (val) {
+        this.row = +(val);
+      },
+      column: function (val) {
+        this.column = +(val);
+      },
+    },
+    filters: {
+    },
     methods: {
       startGame: function () {
+        this.isGameStart = false;
+        this.activeMap = new Map();
+        this.bombMap = new Map();
+        this.displayBombs();
       },
       gameOver: function (row, col) {
         this.displayBombs();
         alert("game over...");
       },
       displayBombs: function () {
+      console.log(this.boardRows);
+      console.log(this.boardColumns);
         for (r of this.boardRows) {
           for (c of this.boardColumns) {
-            const cellId = this._getCellId(r, c);
-            if (this.bombMap.get(cellId)) {
-              this.$refs[cellId][0].style = 'background: red;';
-            }
+            setTimeout(this.activateCell.bind(this, r, c), 1);
           }
         }
       },
@@ -76,8 +113,6 @@ function main () {
         }
       },
       openCell: function(row, col) {
-        if (this.checkActive(row, col)) { return; }
-        this.activateCell(row, col);
         const bombNum = this.checkBombs(row, col);
         if (bombNum === 0) {
           const rowList = this._getSurroundRows(row);
@@ -108,9 +143,11 @@ function main () {
           this.plantBombs(row, col);
           this.isGameStart = true;
         }
+        // activation TODO
+        if (this.checkActive(row, col)) { return; }
+        this.activateCell(row, col);
         if (this.bombMap.get(this._getCellId(row, col))) {
           this.gameOver();
-          return;
         }
         this.openCell(row, col);
 
@@ -119,9 +156,14 @@ function main () {
       activateCell: function (row, col) {
         const cellId = this._getCellId(row, col);
         const bombNum = this.checkBombs(row, col);
-        this.$refs[cellId][0].innerText = bombNum === 0 ? '' : bombNum;
-        this.activeMap.set(cellId, true);
-        this.$forceUpdate();
+        const element = this.$refs[cellId][0];
+        if (this.bombMap.get(this._getCellId(row, col))) {
+          element.style = 'background: red;';
+        } else {
+          element.innerText = bombNum === 0 ? '' : bombNum;
+          this.activeMap.set(cellId, true);
+          this.$forceUpdate();
+        }
       },
       checkActive: function (row, col) {
         const cellId = this._getCellId(row, col);
@@ -133,6 +175,7 @@ function main () {
         this.$forceUpdate();
       },
       checkActivation: function (row, col) {
+        console.log(row + ":" + col);
         const cellId = this._getCellId(row, col);
         const isActive = this.activeMap.get(cellId);
         return !!isActive;
@@ -147,12 +190,6 @@ function main () {
         return `${row}-${col}`;
       },
     },
-    mounted: function () {
-      this.startGame();
-    },
-  })
-}
+  });
 
-document.addEventListener("DOMContentLoaded", function(event) {
-  main();
-});
+}, false);
