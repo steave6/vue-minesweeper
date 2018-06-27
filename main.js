@@ -44,15 +44,12 @@ document.addEventListener('DOMContentLoaded', function() {
       row: 20,
       column: 20,
       difficalty: AppConst.difficalties[1],
-      activeMap: new Map(),
       bombMap: new Map(),
+      openCellQueue: [],
       isGameStart: false,
       msg: "Hello World!",
     },
     computed: {
-      boardCells: function () {
-        return [...Array(this.column*this.row).keys()];
-      },
       boardColumns: function () {
         const col = this.column;
         console.log(`typeof: ${typeof col}`);
@@ -75,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
     methods: {
       startGame: function () {
         this.isGameStart = false;
-        this.activeMap = new Map();
         this.bombMap = new Map();
         this.displayBombs();
       },
@@ -84,8 +80,6 @@ document.addEventListener('DOMContentLoaded', function() {
         alert("game over...");
       },
       displayBombs: function () {
-      console.log(this.boardRows);
-      console.log(this.boardColumns);
         for (r of this.boardRows) {
           for (c of this.boardColumns) {
             setTimeout(this.activateCell.bind(this, r, c), 1);
@@ -112,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
       },
-      openCell: function(row, col) {
+      openAdjacentCell: function(row, col) {
         const bombNum = this.checkBombs(row, col);
         if (bombNum === 0) {
           const rowList = this._getSurroundRows(row);
@@ -120,23 +114,19 @@ document.addEventListener('DOMContentLoaded', function() {
           for (r of rowList) {
             for (c of colList) {
               if (r === row && c === col) { continue; }
-              setTimeout(this.openCell.bind(this, r, c), 1);
+              // setTimeout(this.openAdjacentCell.bind(this, r, c), 1);
+              this.openCellQueue.push({row: r, col: c});
             }
           }
+          this.processOpenQueue()
         }
       },
-      checkBombs: function (row, col) {
-        const rowList = this._getSurroundRows(row);
-        const colList = this._getSurroundColumns(col);
-        let bomNum = 0;
-        for (r of rowList) {
-          for (c of colList) {
-            if (r === row && c === col) { continue; }
-            const bomb = this.bombMap.get(this._getCellId(r, c));
-            if (bomb) { bomNum++; }
-          }
+      processOpenQueue () {
+        let que = this.openCellQueue.pop();
+        while (que) {
+          this.clickCell(null, que.row, que.col);
+          que = this.openCellQueue.pop();
         }
-        return bomNum;
       },
       clickCell: function (ev, row, col) {
         if (!this.isGameStart) {
@@ -148,36 +138,46 @@ document.addEventListener('DOMContentLoaded', function() {
         this.activateCell(row, col);
         if (this.bombMap.get(this._getCellId(row, col))) {
           this.gameOver();
+          return;
         }
-        this.openCell(row, col);
-
-        this.$forceUpdate();
+        this.openAdjacentCell(row, col);
+      },
+      checkBombs: function (row, col) {
+        const rowList = this._getSurroundRows(row);
+        const colList = this._getSurroundColumns(col);
+        let bomNum = 0;
+        for (r of rowList) {
+          for (c of colList) {
+            // if (r === row && c === col) { continue; }
+            const bomb = this.bombMap.get(this._getCellId(r, c));
+            if (bomb) { bomNum++; }
+          }
+        }
+        return bomNum;
       },
       activateCell: function (row, col) {
         const cellId = this._getCellId(row, col);
         const bombNum = this.checkBombs(row, col);
         const element = this.$refs[cellId][0];
+        element.classList.add('active');
         if (this.bombMap.get(this._getCellId(row, col))) {
           element.style = 'background: red;';
         } else {
           element.innerText = bombNum === 0 ? '' : bombNum;
-          this.activeMap.set(cellId, true);
-          this.$forceUpdate();
         }
       },
       checkActive: function (row, col) {
         const cellId = this._getCellId(row, col);
-        return this.activeMap.get(cellId);
+        return this.$refs[cellId][0].classList.contains('active');
       },
       rightClickCell: function (ev, row, col) {
         if (!this.isGameStart) return;
         console.log(this._getCellId(row,col));
-        this.$forceUpdate();
       },
       checkActivation: function (row, col) {
         console.log(row + ":" + col);
         const cellId = this._getCellId(row, col);
-        const isActive = this.activeMap.get(cellId);
+        const isActive = this.$refs[cellId][0].classList.contains('active');
         return !!isActive;
       },
       _getSurroundRows: function (row) {
