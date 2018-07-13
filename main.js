@@ -1,53 +1,62 @@
 document.addEventListener('DOMContentLoaded', function() {
   const AppConst = {
-    difficalties: [
+    difficulties: [
     {id: 1, val: "easy"},
     {id: 2, val: "normal"},
     {id: 3, val: "hard"},
     ],
   }
   const template = `
-  <div>
-    <form @submit.prevent>
-      row: <input v-model='row' type='number' min='1' step='1'></input>
-      column: <input v-model='column' type='number' min='1' step='1'></input>
-      <br/>
-      difficalty: <select :value='difficalty'>
-        <option v-for='option in resource.difficalties' :value='option.id'>
-          {{ option.val }}
-        </option>
-      </select>
-      <button @click='startGame()'>START</button>
+<div class="mine-template" :style="'--mine-row:' + row*20 + 'px; --mine-column:' + column*20 +'px;'">
+  <div class='row'>
+    <form id='mine-setting container' @submit.prevent>
+      <div class='input-field inline col s4'>
+        <input id='row' class='validate' v-model='row' type='number' min='1' step='1'/>
+        <label for='row' class="active">row</label>
+      </div>
+      <div class='input-field inline col s4'>
+        <input id='column' class='validate' v-model='column' type='number' min='1' step='1' placeholder='column'/>
+        <label for='column' class="active">column</label>
+      </div>
+      <div class='input-field col s4'>
+        <select id='mine-difficulty'>
+          <option v-for='option in resource.difficulties' :value='option.id'>
+            {{ option.val }}
+          </option>
+        </select>
+        <label for="mine-difficulty" class='active'>difficulty: </label>
+      </div>
+      <button class='btn lime-green col s2 center' @click='startGame()'>START</button>
     </form>
-    <p>row: {{ row }}, column: {{ column }}</p>
-    <p>{{ msg }}</p>
-    <table class='board-table'>
-    <tbody>
-    <tr v-for='row in boardRows'>
-      <td class='board-cell'
-        v-for='col in boardColumns' :row='row' :col='col'
-        :ref='row + "-" + col'
-        @click='clickCell($event, row, col)'
-        @mouseup.right='rightClickCell($event, row, col)'></td>
-    </tr>
-    </tbody>
+    <table class='board-table container' oncontextmenu="return false;">
+      <tbody>
+        <tr v-for='row in boardRows'>
+          <td class='board-cell'
+            v-for='col in boardColumns' :row='row' :col='col'
+            :ref='row + "-" + col'
+            @click='clickCell($event, row, col)'
+            @mouseup.right='rightClickCell($event, row, col)'>
+            <p></p>
+          </td>
+        </tr>
+      </tbody>
     </table>
-    </div>
+  </div>
+</div>
   `;
   new Vue({
     el: "#minesweeper",
     template: template,
     data: {
       resource: {
-        difficalties: AppConst.difficalties,
+        difficulties: AppConst.difficulties,
       },
-      row: 20,
-      column: 20,
-      difficalty: AppConst.difficalties[1],
+      row: 10,
+      column: 10,
+      difficalty: AppConst.difficulties[1],
       bombMap: new Map(),
       openCellQueue: [],
       isGameStart: false,
-      msg: "Hello World!",
     },
     computed: {
       boardColumns: function () {
@@ -73,11 +82,22 @@ document.addEventListener('DOMContentLoaded', function() {
       startGame: function () {
         this.isGameStart = false;
         this.bombMap = new Map();
-        this.displayBombs();
+        this.clearBoard();
       },
       gameOver: function (row, col) {
         this.displayBombs();
         alert("game over...");
+      },
+      clearBoard: function () {
+        for (r of this.boardRows) {
+          for (c of this.boardColumns) {
+            const cellId = this._getCellId(r, c);
+            const element = this.$refs[cellId][0]
+            element.classList.remove('active');
+            element.classList.remove('red');
+            element.replaceChild(document.createElement('p'), element.firstChild);
+          }
+        }
       },
       displayBombs: function () {
         for (r of this.boardRows) {
@@ -133,7 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
           this.plantBombs(row, col);
           this.isGameStart = true;
         }
-        // activation TODO
+        // flag return
+        const element = this.$refs[this._getCellId(row, col)][0];
+        if (this._getINodes(element)) {
+          return;
+        }
+        // activation
         if (this.checkActive(row, col)) { return; }
         this.activateCell(row, col);
         if (this.bombMap.get(this._getCellId(row, col))) {
@@ -161,9 +186,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const element = this.$refs[cellId][0];
         element.classList.add('active');
         if (this.bombMap.get(this._getCellId(row, col))) {
-          element.style = 'background: red;';
+          element.classList.add('red');
         } else {
-          element.innerText = bombNum === 0 ? '' : bombNum;
+          const p = document.createElement("p");
+          p.innerText = bombNum === 0 ? '' : bombNum;
+          element.replaceChild(p, element.firstChild);
         }
       },
       checkActive: function (row, col) {
@@ -172,7 +199,28 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       rightClickCell: function (ev, row, col) {
         if (!this.isGameStart) return;
-        console.log(this._getCellId(row,col));
+        const cellId = this._getCellId(row, col);
+        const element = this.$refs[cellId][0];
+        const inode = this._getINodes(element);
+        if (inode) {
+          element.removeChild(inode);
+        } else {
+          const inode = document.createElement('i');
+          inode.classList.add('material-icons');
+          inode.classList.add('md-10');
+          inode.innerText = 'flag';
+          element.appendChild(inode);
+        }
+      },
+      _getINodes(node) {
+        if (!node) return null;
+        let nodes = [ ...node.childNodes ];
+        for (n of nodes) {
+          if (n.tagName === "I") {
+            return n
+          }
+        }
+        return;
       },
       checkActivation: function (row, col) {
         console.log(row + ":" + col);
@@ -189,6 +237,10 @@ document.addEventListener('DOMContentLoaded', function() {
       _getCellId: function (row, col) {
         return `${row}-${col}`;
       },
+    },
+    mounted: function () {
+      const elems = document.querySelectorAll('select');
+      const instances = M.FormSelect.init(elems, {});
     },
   });
 
